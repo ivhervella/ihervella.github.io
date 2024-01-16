@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Mapa interactivo de los alojamientos de Airbnb en Madrid</title>
     <style>
@@ -64,6 +63,36 @@
             margin: 4px;
             padding: 2px 5px;
         }
+
+        .counter {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: #fff;
+            border: 2px solid #fff;
+            border-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+            font-size: 15px;
+            padding: 10px;
+        }
+
+        #resetButton {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #resetButton:hover {
+            background-color: #45a049;
+        }
+
+        #resetButtonContainer {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -79,11 +108,17 @@
 
         let markers = [];
         let minPriceInput, maxPriceInput;
+        let contadorAlojamientos;
 
         function actualizarFiltroPrecio() {
             filtrarPuntosMapa();
         }
-        parsearCSV
+
+        function updateCounter() {
+            const displayedMarkers = markers.filter(marker => marker.getVisible());
+            const count = displayedMarkers.length;
+            contadorAlojamientos.textContent = `Número de alojamientos mostrados: ${count}`;
+        }
 
         function parsearPrecio(priceString) {
             if (priceString && priceString.trim() !== '') {
@@ -296,6 +331,53 @@
             map.controls[google.maps.ControlPosition.TOP_LEFT].push(neighbourhoodFilterControl);
         }
 
+        function crearControlResetFiltros(map) {
+
+            const controlWrapper = document.createElement('div');
+            controlWrapper.style.backgroundColor = '#4CAF50';
+            controlWrapper.style.marginTop = '10px';
+            controlWrapper.style.marginRight = '10px';
+            controlWrapper.style.marginBottom = '20px';
+            controlWrapper.style.textAlign = 'center';
+            controlWrapper.style.border = '2px solid #4CAF50';
+            controlWrapper.style.borderRadius = '3px';
+            controlWrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
+
+
+            const resetButton = document.createElement('button');
+            resetButton.id = 'resetButton';
+            resetButton.textContent = 'Limpiar filtros';
+            resetButton.style.background = 'none';
+            resetButton.style.border = 'none';
+            resetButton.style.color = 'white';
+            resetButton.style.fontSize = '15px';
+            resetButton.style.cursor = 'pointer';
+            resetButton.addEventListener('click', function () {
+
+                document.getElementById('roomTypeFilter').value = 'all';
+
+
+                const districtFilter = document.getElementById('districtFilter');
+                for (let i = 0; i < districtFilter.options.length; i++) {
+                    districtFilter.options[i].selected = false;
+                }
+
+                const neighbourhoodFilter = document.getElementById('neighbourhoodFilter');
+                for (let i = 0; i < neighbourhoodFilter.options.length; i++) {
+                    neighbourhoodFilter.options[i].selected = false;
+                }
+
+                minPriceInput.value = '';
+                maxPriceInput.value = '';
+
+
+                filtrarPuntosMapa();
+            });
+
+            controlWrapper.appendChild(resetButton);
+            map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlWrapper);
+        }
+
         function filtrarPuntosMapa() {
             const selectedRoomType = document.getElementById('roomTypeFilter').value;
             const selectedDistricts = Array.from(document.getElementById('districtFilter').selectedOptions).map(option => option.value);
@@ -310,6 +392,8 @@
                 const isVisibleByPrice = marker.price >= minSelectedPrice && marker.price <= maxSelectedPrice;
                 marker.setVisible(isVisibleByType && isVisibleByDistrict && isVisibleByNeighbourhood && isVisibleByPrice);
             });
+
+            updateCounter();
         }
 
         function initMap() {
@@ -327,6 +411,8 @@
             map.controls[google.maps.ControlPosition.TOP_LEFT].clear();
             crearControlFiltroTipoAlojamiento(map);
             crearControlFiltroPrecio(map);
+            crearControlResetFiltros(map);
+
 
             cargarDatos().then(csv => {
                 const alojamientos = parsearCSV(csv);
@@ -368,7 +454,11 @@
                     markers.push(marker);
 
                 });
+                updateCounter();
             });
+            contadorAlojamientos = document.createElement('div');
+            contadorAlojamientos.classList.add('counter');
+            map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(contadorAlojamientos);
         }
     </script>
     <!-- Añadir la clave de API a la URL -->
