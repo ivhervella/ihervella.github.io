@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Mapa interactivo de los alojamientos de Airbnb en Madrid</title>
     <style>
@@ -70,7 +71,7 @@
     <div id="map"></div>
 
     <script>
-        async function loadData() {
+        async function cargarDatos() {
             const response = await fetch('https://raw.githubusercontent.com/ivhervella/ihervella.github.io/main/alojamientos_mapa.csv');
             const data = await response.text();
             return data;
@@ -79,17 +80,42 @@
         let markers = [];
         let minPriceInput, maxPriceInput;
 
-        function updatePriceFilter() {
-            filterMarkers();
+        function actualizarFiltroPrecio() {
+            filtrarPuntosMapa();
         }
+        parsearCSV
 
-
-        function parsePrice(priceString) {
+        function parsearPrecio(priceString) {
             if (priceString && priceString.trim() !== '') {
                 return parseFloat(priceString.replace(/[$,]/g, ''));
             }
 
             return NaN;
+        }
+
+        function traducirTexto(texto) {
+
+            const traducciones = {
+                'bedroom': 'dormitorio',
+                'bedrooms': 'dormitorios',
+                'in': 'en',
+                'home': 'Casa',
+                'rental unit': 'Casa de alquiler',
+                'bath': 'baño',
+                'baths': 'baños',
+                'bed': 'cama',
+                'beds': 'camas',
+                'private bath': 'baño privado',
+                'private baths': 'baños privados',
+                'shared bath': 'baño compartido',
+                'shared baths': 'baños compartidos'
+            };
+
+            const pattern = new RegExp(Object.keys(traducciones).join('|'), 'gi');
+
+            const textoTraducido = texto.replace(pattern, match => traducciones[match.toLowerCase()]);
+
+            return textoTraducido;
         }
 
         function obtenerNumero(str) {
@@ -105,40 +131,41 @@
             }
             return "No especificado";
         }
-        function parseCSV(data) {
-            const listings = [];
+        function parsearCSV(data) {
+            const alojamientos = [];
             const lines = data.split('\n');
             lines.forEach((line, index) => {
                 if (index > 0) {
-                    const columns = line.split(',');
-                    const listing_name = columns[0];
-                    const capacity = obtenerNumero(columns[9]);
-                    const review_score = comprobarValoracion(columns[11]);
-                    const neighborhood = columns[3];
-                    const neighborhood_group = columns[4];
-                    const latitude = parseFloat(columns[5]);
-                    const longitude = parseFloat(columns[6]);
-                    const roomType = columns[7];
-                    const price = parsePrice(columns[10]);
+                    const columnas = line.split(',');
+                    const alojamiento_name = traducirTexto(columnas[0]);
+                    const neighborhood = columnas[3];
+                    const neighborhood_group = columnas[4];
+                    const latitude = parseFloat(columnas[5]);
+                    const longitude = parseFloat(columnas[6]);
+                    const roomType = columnas[7];
+                    const capacity = obtenerNumero(columnas[9]);
+                    const price = parsearPrecio(columnas[10]);
+                    const review_score = comprobarValoracion(columnas[11]);
+
                     if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(price)) {
-                        listings.push({ lat: latitude, lng: longitude, roomType, price, listing_name, capacity, review_score, neighborhood, neighborhood_group });
+                        alojamientos.push({ lat: latitude, lng: longitude, roomType, price, alojamiento_name, capacity, review_score, neighborhood, neighborhood_group });
                     }
                 }
             });
-            return listings;
+            return alojamientos;
         }
 
 
-        function createPriceFilterControl(map) {
+        function crearControlFiltroPrecio(map) {
             const controlWrapper = document.createElement('div');
             controlWrapper.style.backgroundColor = '#fff';
-            controlWrapper.style.border = '2px solid #fff';
-            controlWrapper.style.borderRadius = '3px';
-            controlWrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
             controlWrapper.style.marginTop = '10px';
             controlWrapper.style.marginLeft = '10px';
             controlWrapper.style.marginBottom = '22px';
             controlWrapper.style.textAlign = 'center';
+            controlWrapper.style.border = '2px solid #fff';
+            controlWrapper.style.borderRadius = '3px';
+            controlWrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
 
             const priceInputContainer = document.createElement('div');
             priceInputContainer.classList.add('price-input-container');
@@ -148,19 +175,19 @@
             minPriceInput.placeholder = 'Precio mínimo';
             minPriceInput.classList.add('price-input');
             minPriceInput.id = 'minPriceInput';
-            minPriceInput.onchange = updatePriceFilter;
+            minPriceInput.onchange = actualizarFiltroPrecio;
 
             maxPriceInput = document.createElement('input');
             maxPriceInput.type = 'number';
             maxPriceInput.placeholder = 'Precio máximo';
             maxPriceInput.classList.add('price-input');
             maxPriceInput.id = 'maxPriceInput';
-            maxPriceInput.onchange = updatePriceFilter;
+            maxPriceInput.onchange = actualizarFiltroPrecio;
 
             priceInputContainer.appendChild(minPriceInput);
             priceInputContainer.appendChild(maxPriceInput);
             const spaceElement = document.createElement('div');
-            spaceElement.style.margin = '0 4px'; 
+            spaceElement.style.margin = '0 4px';
             controlWrapper.appendChild(spaceElement);
             controlWrapper.appendChild(priceInputContainer);
 
@@ -168,19 +195,19 @@
         }
 
 
-        function createFilterControl(map) {
+        function crearControlFiltroTipoAlojamiento(map) {
 
             const controlWrapper = document.createElement('div');
             controlWrapper.style.backgroundColor = '#fff';
-            controlWrapper.style.border = '2px solid #fff';
-            controlWrapper.style.borderRadius = '3px';
-            controlWrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
             controlWrapper.style.marginTop = '10px';
             controlWrapper.style.marginBottom = '22px';
             controlWrapper.style.textAlign = 'center';
+            controlWrapper.style.border = '2px solid #fff';
+            controlWrapper.style.borderRadius = '3px';
+            controlWrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
 
             const filterSelect = document.createElement('select');
-            filterSelect.id = 'roomTypeFilter'; 
+            filterSelect.id = 'roomTypeFilter';
             filterSelect.innerHTML = `
                 <option value="all">Todos los tipos de alojamiento</option>
                 <option value="Habitación privada">Habitación privada</option>
@@ -189,7 +216,7 @@
 				<option value="Habitación de hotel">Habitación de hotel</option>
                 <!-- Add other room types as needed -->
             `;
-            filterSelect.onchange = filterMarkers;
+            filterSelect.onchange = filtrarPuntosMapa;
             filterSelect.style.border = 'none';
             filterSelect.style.outline = 'none';
             filterSelect.style.boxShadow = 'none';
@@ -201,13 +228,13 @@
             map.controls[google.maps.ControlPosition.TOP_LEFT].push(controlWrapper);
         }
 
-        function populateDistrictFilter(listings, map) {
+        function rellenarFiltroDistritos(alojamientos, map) {
             const districtFilter = document.createElement('select');
             districtFilter.id = 'districtFilter';
             districtFilter.multiple = true;
-            districtFilter.size = 5; 
+            districtFilter.size = 5;
             districtFilter.style.width = '200px';
-            districtFilter.onchange = filterMarkers;
+            districtFilter.onchange = filtrarPuntosMapa;
 
             const allOption = document.createElement('option');
             allOption.value = 'all';
@@ -215,8 +242,8 @@
             districtFilter.appendChild(allOption);
 
             const districtSet = new Set();
-            listings.forEach(listing => {
-                districtSet.add(listing.neighborhood_group);
+            alojamientos.forEach(alojamiento => {
+                districtSet.add(alojamiento.neighborhood_group);
             });
 
             const sortedDistricts = Array.from(districtSet).sort();
@@ -235,13 +262,13 @@
             map.controls[google.maps.ControlPosition.TOP_LEFT].push(districtFilterControl);
         }
 
-        function populateNeighbourhoodFilter(listings, map) {
+        function rellenarFiltroBarrios(alojamientos, map) {
             const neighbourhoodFilter = document.createElement('select');
             neighbourhoodFilter.id = 'neighbourhoodFilter';
             neighbourhoodFilter.multiple = true;
-            neighbourhoodFilter.size = 5; 
+            neighbourhoodFilter.size = 5;
             neighbourhoodFilter.style.width = '200px';
-            neighbourhoodFilter.onchange = filterMarkers;
+            neighbourhoodFilter.onchange = filtrarPuntosMapa;
 
             const allOption = document.createElement('option');
             allOption.value = 'all';
@@ -249,8 +276,8 @@
             neighbourhoodFilter.appendChild(allOption);
 
             const neighbourhoodSet = new Set();
-            listings.forEach(listing => {
-                neighbourhoodSet.add(listing.neighborhood);
+            alojamientos.forEach(alojamiento => {
+                neighbourhoodSet.add(alojamiento.neighborhood);
             });
 
             const sortedNeighbourhoods = Array.from(neighbourhoodSet).sort();
@@ -269,7 +296,7 @@
             map.controls[google.maps.ControlPosition.TOP_LEFT].push(neighbourhoodFilterControl);
         }
 
-        function filterMarkers() {
+        function filtrarPuntosMapa() {
             const selectedRoomType = document.getElementById('roomTypeFilter').value;
             const selectedDistricts = Array.from(document.getElementById('districtFilter').selectedOptions).map(option => option.value);
             const selectedNeighbourhoods = Array.from(document.getElementById('neighbourhoodFilter').selectedOptions).map(option => option.value);
@@ -298,25 +325,25 @@
 
             const map = new google.maps.Map(document.getElementById('map'), options);
             map.controls[google.maps.ControlPosition.TOP_LEFT].clear();
-            createFilterControl(map);
-            createPriceFilterControl(map);
+            crearControlFiltroTipoAlojamiento(map);
+            crearControlFiltroPrecio(map);
 
-            loadData().then(csv => {
-                const listings = parseCSV(csv);
-                populateDistrictFilter(listings, map);
-                populateNeighbourhoodFilter(listings, map);
-                listings.forEach(listing => {
+            cargarDatos().then(csv => {
+                const alojamientos = parsearCSV(csv);
+                rellenarFiltroDistritos(alojamientos, map);
+                rellenarFiltroBarrios(alojamientos, map);
+                alojamientos.forEach(alojamiento => {
 
                     const contentString = `
                 <div id="content">
-                    <h1 id="firstHeading" class="firstHeading">${listing.listing_name}</h1>
+                    <h1 id="firstHeading" class="firstHeading">${alojamiento.alojamiento_name}</h1>
                     <div id="bodyContent">
 					<h3>Detalles del alojamiento</h3>
-                        <p><b>Precio por día:</b> ${listing.price}$</p>
-						<p><b>Capacidad:</b> ${listing.capacity} persona/s</p>
-						<p><b>Valoración media:</b> ${listing.review_score}★</p>
-						<p><b>Barrio:</b> ${listing.neighborhood}</p>
-						<p><b>Distrito:</b> ${listing.neighborhood_group}</p>
+                        <p><b>Precio por día:</b> ${alojamiento.price}$</p>
+						<p><b>Capacidad:</b> ${alojamiento.capacity} persona/s</p>
+						<p><b>Valoración media:</b> ${alojamiento.review_score}★</p>
+						<p><b>Barrio:</b> ${alojamiento.neighborhood}</p>
+						<p><b>Distrito:</b> ${alojamiento.neighborhood_group}</p>
                         <img src="" alt="" style="width:100%;max-width:200px;">
                     </div>
                 </div>`;
@@ -326,11 +353,11 @@
                     });
 
                     const marker = new google.maps.Marker({
-                        position: listing,
-                        roomType: listing.roomType,
-                        price: listing.price,
-                        neighborhood: listing.neighborhood,
-                        neighborhood_group: listing.neighborhood_group,
+                        position: alojamiento,
+                        roomType: alojamiento.roomType,
+                        price: alojamiento.price,
+                        neighborhood: alojamiento.neighborhood,
+                        neighborhood_group: alojamiento.neighborhood_group,
                         map: map,
                         icon: icono_mapa
                     });
@@ -344,8 +371,10 @@
             });
         }
     </script>
+    <!-- Añadir la clave de API a la URL -->
     <script async defer
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBKO7Mt6xZH73b7aUrOaE6KcwZCdwOirdg&callback=initMap">
         </script>
 </body>
+
 </html>
